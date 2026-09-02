@@ -133,6 +133,7 @@
   }
 
   function scanAll() {
+    if (document.hidden) return; // skip rescans in background tabs
     try {
       var articles = document.querySelectorAll('article[data-testid="tweet"]');
       for (var index = 0; index < articles.length; index++) scanArticle(articles[index]);

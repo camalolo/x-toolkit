@@ -91,10 +91,4 @@
   75% { transform: translateX(3px); }
 }
 
-/* ==========================================================================
-   Country filter — hidden blocked articles
-   ========================================================================== */
-
-article.xdl-blocked {
-  display: none !important;
-}
+/* (Country filter uses inline style.display on articles — no CSS needed) */

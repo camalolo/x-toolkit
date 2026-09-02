@@ -47,6 +47,7 @@ var BEARER = 'AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7
 var QUERY_IDS = ['zs_jFPFT78rBpXv9Z3U2YQ', 'XRqGa7EeokUU5kppkh13EA'];
 
 var CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+var CACHE_MAX_ENTRIES = 3000; // bound storage size (prune oldest on flush)
 var memCache = new Map(); // screenName -> {country, accurate, ts}
 var inflight = new Map(); // screenName -> [sendResponse callbacks]
 var queue = [];
@@ -110,6 +111,15 @@ function persistCache(screenName, entry) {
   chrome.storage.local.get('xdl_cache', function (data) {
     var store = data.xdl_cache || {};
     store[screenName] = entry;
+
+    var keys = Object.keys(store);
+    var excess = keys.length - CACHE_MAX_ENTRIES;
+    if (excess > 0) {
+      // Drop the oldest entries to keep reads/writes O(bounded)
+      keys.sort(function (a, b) { return (store[a].ts || 0) - (store[b].ts || 0); });
+      for (var di = 0; di < excess; di++) delete store[keys[di]];
+    }
+
     chrome.storage.local.set({ xdl_cache: store });
   });
 }
