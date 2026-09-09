@@ -14,6 +14,7 @@
   var QUOTE_USER_ATTR = 'data-xdl-quote-user';
   var QUOTE_COUNTRY_ATTR = 'data-xdl-quote-country';
   var STATUS_ATTR = 'data-xdl-status';
+  var NEAR_ATTR = 'data-xdl-near';
   var CONTAINER_CLASS = 'xdl-btn-wrap';
   var ICON_DOWNLOAD =
     '<svg viewBox="0 0 24 24" class="xdl-svg"><g><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"></path></g></svg>';
@@ -230,6 +231,22 @@
     return true;
   }
 
+  // Warm lookups just before articles enter the viewport: resolves
+  // countries pre-emptively instead of after the post is visible
+  var io = new IntersectionObserver(function (entries) {
+    for (var entry of entries) {
+      var article = entry.target;
+      if (entry.isIntersecting) {
+        if (!article.hasAttribute(NEAR_ATTR)) {
+          article.setAttribute(NEAR_ATTR, '1');
+          processCountry(article); // retry lookups now that it's near
+        }
+      } else {
+        article.removeAttribute(NEAR_ATTR);
+      }
+    }
+  }, { rootMargin: '150%' });
+
   function processCountry(article) {
     if (!ready) return;
 
@@ -251,6 +268,8 @@
         article.removeAttribute(QUOTE_USER_ATTR);
       }
       article.removeAttribute(QUOTE_COUNTRY_ATTR);
+      article.removeAttribute(NEAR_ATTR);
+      io.observe(article);
     }
 
     // Resolve author country from cache
@@ -268,7 +287,9 @@
       article.setAttribute(QUOTE_COUNTRY_ATTR, localCache[info.quoteScreenName]);
     }
 
-    // Request lookups for unresolved users (skip known-unknown countries)
+    // Request lookups for unresolved users — only once near the viewport
+    if (!article.hasAttribute(NEAR_ATTR)) return;
+
     if (!article.getAttribute(COUNTRY_ATTR) && !pendingLookups.has(info.screenName) &&
         !countryUnknown.has(info.screenName)) {
       requestLookup(info.screenName);

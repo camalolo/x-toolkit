@@ -1,6 +1,6 @@
 {
   "name": "x-video-downloader",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Chrome extension to download videos from X.com (Twitter) posts",
   "private": true,
   "scripts": {

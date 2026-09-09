@@ -48,10 +48,13 @@ var QUERY_IDS = ['zs_jFPFT78rBpXv9Z3U2YQ', 'XRqGa7EeokUU5kppkh13EA'];
 
 var CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
 var CACHE_MAX_ENTRIES = 3000; // bound storage size (prune oldest on flush)
+var MAX_CONCURRENT = 5; // parallel lookup slots
+var THROTTLE_MS = 10_000; // pool cool-down after a 429
 var memCache = new Map(); // screenName -> {country, accurate, ts}
 var inflight = new Map(); // screenName -> [sendResponse callbacks]
 var queue = [];
-var busy = false;
+var running = 0;
+var throttleUntil = 0;
 
 function handleLookup(message, sendResponse) {
   var screenName = message.screenName;
@@ -80,7 +83,7 @@ function handleLookup(message, sendResponse) {
     }
     inflight.set(screenName, [sendResponse]);
 
-    // 4. Queue the API call (rate-limited)
+    // 4. Queue the API call (bounded parallel pool, backs off on 429)
     enqueue(function () {
       return fetchCountry(screenName, message.csrf)
         .then(function (result) {
@@ -90,6 +93,9 @@ function handleLookup(message, sendResponse) {
           resolveInflight(screenName, { country: result.country, accurate: result.accurate });
         })
         .catch(function (error) {
+          if (error.message === 'Rate limited') {
+            throttleUntil = Date.now() + THROTTLE_MS;
+          }
           console.warn('[XDL] Lookup failed for @' + screenName + ':', error.message);
           resolveInflight(screenName, { country: null, error: error.message });
         });
@@ -124,29 +130,34 @@ function persistCache(screenName, entry) {
   });
 }
 
-/* -- Rate-limited fetch queue ----------------------------------------- */
+/* -- Fetch pool: bounded parallelism + 429 backoff -------------------- */
 
 function enqueue(task) {
   queue.push(task);
-  if (!busy) drainQueue();
+  pump();
 }
 
-async function drainQueue() {
-  busy = true;
-  while (queue.length > 0) {
-    var task = queue.shift();
-    try {
-      await task();
-    } catch (error) {
-      console.warn('[XDL] Queue task error:', error.message);
-    }
-    await sleep(200);
+function pump() {
+  if (running >= MAX_CONCURRENT) return;
+  var wait = Math.max(0, throttleUntil - Date.now());
+  if (wait > 0) {
+    setTimeout(pump, wait);
+    return;
   }
-  busy = false;
-}
 
-function sleep(ms) {
-  return new Promise(function (r) { setTimeout(r, ms); });
+  var task = queue.shift();
+  if (!task) return;
+
+  running++;
+  Promise.resolve(task())
+    .catch(function (error) {
+      console.warn('[XDL] Pool task error:', error.message);
+    })
+    .then(function () {
+      running--;
+      pump();
+    });
+  pump(); // fill remaining slots
 }
 
 /* -- AboutAccountQuery fetch ------------------------------------------ */
