@@ -130,6 +130,52 @@
     setTimeout(function () { button.classList.remove(cls); }, 1200);
   }
 
+  /* -- Video click: restore play/unmute, block link navigation ---------- */
+
+  // X.com recently made clicking a video navigate to the post. This
+  // capture-phase interceptor blocks that and restores the old behavior:
+  // click = unmute (if muted) / play-pause toggle.
+
+  chrome.storage.local.get('xdl_video_click', function (data) {
+    setVideoClick(data.xdl_video_click !== false); // default: on
+  });
+
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes.xdl_video_click) {
+      setVideoClick(changes.xdl_video_click.newValue !== false);
+    }
+  });
+
+  function setVideoClick(enabled) {
+    if (enabled) document.addEventListener('click', onVideoClick, true);
+    else document.removeEventListener('click', onVideoClick, true);
+  }
+
+  function onVideoClick(event) {
+    var video = event.target.closest('video');
+    if (!video) return;
+
+    // Let the player's own controls (play, mute, scrubber, fullscreen) work
+    if (event.target.closest('[role="button"], button, [role="slider"]')) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (video.muted) {
+      video.muted = false;
+      playSafe(video);
+    } else if (video.paused) {
+      playSafe(video);
+    } else {
+      video.pause();
+    }
+  }
+
+  function playSafe(video) {
+    var p = video.play();
+    if (p && p.catch) p.catch(function () { /* autoplay policy */ });
+  }
+
   /* -- Country filter --------------------------------------------------- */
 
   var pendingLookups = new Set();

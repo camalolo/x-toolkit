@@ -1,7 +1,7 @@
 /* ==========================================================================
-   X Video Downloader - popup.js
-   Settings popup: manage blocked countries with real-time block counts
-   and new-country detection badges.
+   X Toolkit - popup.js
+   Settings popup: video click behavior, country filter with real-time
+   block counts and new-country detection badges.
    ========================================================================== */
 
 var seenCountries = [];
@@ -10,8 +10,14 @@ document.addEventListener('DOMContentLoaded', init);
 document.addEventListener('pagehide', saveSeenCountries);
 
 function init() {
-  chrome.storage.local.get(['xdl_filter_enabled', 'xdl_seen_countries'], function (data) {
+  chrome.storage.local.get(['xdl_filter_enabled', 'xdl_seen_countries', 'xdl_video_click'], function (data) {
     seenCountries = data.xdl_seen_countries || [];
+
+    var videoToggle = document.getElementById('videoClickToggle');
+    videoToggle.checked = data.xdl_video_click !== false; // default: on
+    videoToggle.addEventListener('change', function () {
+      chrome.storage.local.set({ xdl_video_click: videoToggle.checked });
+    });
 
     var toggle = document.getElementById('masterToggle');
     toggle.checked = !!data.xdl_filter_enabled;

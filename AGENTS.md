@@ -1,4 +1,4 @@
-# X Video Downloader
+# X Toolkit
 
 ## Architecture
 
@@ -7,9 +7,9 @@ Two content scripts with different world contexts:
 | File | World | Role |
 |------|-------|------|
 | `inject.js` | MAIN | Reads React props from DOM, extracts video URLs, writes `data-xdl-url` attribute |
-| `content.js` | ISOLATED | Injects download button UI, handles clicks, sends messages to background. Also handles country-based post filtering |
+| `content.js` | ISOLATED | Injects download button UI, handles clicks, sends messages to background. Also handles country-based post filtering and video click interception |
 | `background.js` | Service worker | Downloads video via `chrome.downloads.download()`. Fetches `AboutAccountQuery` GraphQL for country lookups |
-| `popup.html/js/css` | Popup | Settings UI for managing blocked countries |
+| `popup.html/js/css` | Popup | Settings UI: video click toggle + country filter management |
 
 Cross-world communication uses DOM attributes (shared between worlds) and `window.postMessage`.
 
@@ -19,6 +19,7 @@ Cross-world communication uses DOM attributes (shared between worlds) and `windo
 - **Video quality**: Picks the highest-bitrate MP4 variant from `video_info.variants`.
 - **Virtual scroll handling**: Detects article recycling by comparing stored tweet ID with current URL; clears stale attributes when a tweet changes.
 - **Button placement**: Inserted before the share button's container (last child of `[role="group"]` action bar).
+- **Video click**: Capture-phase click listener on `document`; blocks navigation on video surfaces (excludes `[role="button"]`/slider controls) and directly toggles `video.muted`/`play()`/`pause()`. Gated by `xdl_video_click` (default on).
 
 ## Common issues
 
