@@ -19,7 +19,7 @@ Cross-world communication uses DOM attributes (shared between worlds) and `windo
 - **Video quality**: Picks the highest-bitrate MP4 variant from `video_info.variants`.
 - **Virtual scroll handling**: Detects article recycling by comparing stored tweet ID with current URL; clears stale attributes when a tweet changes.
 - **Button placement**: Inserted before the share button's container (last child of `[role="group"]` action bar).
-- **Video click**: Capture-phase click listener on `document`; blocks navigation on video surfaces (excludes `[role="button"]`/slider controls) and directly toggles `video.muted`/`play()`/`pause()`. Gated by `xdl_video_click` (default on).
+- **Video click**: Capture-phase click listener on `document`; blocks navigation on the player region (`data-testid="videoPlayer"` — clicks land on X's overlay div, not the `<video>`), excluding `[role="button"]`/slider/scrubber controls, and directly toggles `video.muted`/`play()`/`pause()`. Gated by `xdl_video_click` (default on).
 
 ## Common issues
 

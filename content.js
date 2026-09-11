@@ -146,28 +146,48 @@
     }
   });
 
+  var VIDEO_EVENTS = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'auxclick'];
+
   function setVideoClick(enabled) {
-    if (enabled) document.addEventListener('click', onVideoClick, true);
-    else document.removeEventListener('click', onVideoClick, true);
+    console.info('[XDL] video click guard ' + (enabled ? 'enabled' : 'disabled'));
+    for (var type of VIDEO_EVENTS) {
+      if (enabled) globalThis.addEventListener(type, onVideoClick, true);
+      else globalThis.removeEventListener(type, onVideoClick, true);
+    }
   }
 
   function onVideoClick(event) {
-    var video = event.target.closest('video');
-    if (!video) return;
+    var target = event.target;
+    if (!target || !target.closest) return;
+
+    // X overlays an invisible div on top of <video>, so clicks target the
+    // overlay — detect the player region instead of the video element.
+    var player = target.closest('[data-testid="videoPlayer"], [data-testid="videoComponent"]');
+    if (!player) return;
 
     // Let the player's own controls (play, mute, scrubber, fullscreen) work
-    if (event.target.closest('[role="button"], button, [role="slider"]')) return;
+    if (target.closest('button, [role="button"], [role="slider"], [data-testid="scrubber"]')) return;
 
-    event.preventDefault();
-    event.stopPropagation();
+    var video = player.querySelector('video');
+    if (!video) return;
 
-    if (video.muted) {
-      video.muted = false;
-      playSafe(video);
-    } else if (video.paused) {
-      playSafe(video);
-    } else {
-      video.pause();
+    // Block every pointer/mouse event over the player surface so no page
+    // handler (click OR mouseup-based ad navigation) ever sees it.
+    event.stopImmediatePropagation();
+    if (event.type !== 'pointerup' && event.type !== 'mouseup') {
+      event.preventDefault(); // keep release events alive so `click` fires
+    }
+
+    // Toggle playback only on click — other events just get blocked
+    if (event.type === 'click') {
+      if (video.muted) {
+        video.muted = false;
+        playSafe(video);
+      } else if (video.paused) {
+        playSafe(video);
+      } else {
+        video.pause();
+      }
     }
   }
 
